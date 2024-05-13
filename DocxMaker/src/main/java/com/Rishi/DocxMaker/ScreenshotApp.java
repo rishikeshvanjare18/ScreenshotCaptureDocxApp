@@ -46,7 +46,7 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 	private Robot robot;
 	private JButton startButton;
 	private JButton stopButton;
-	Rectangle screenRect;
+	private Rectangle screenRect;
 
 	public ScreenshotApp() {
 
@@ -85,7 +85,7 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 		logger.setLevel(Level.OFF);
 		// Create the main application instance
 //		ScreenshotApp app = new ScreenshotApp();
-		stopButton.setEnabled(false);
+		stopButton.setVisible(false);
 		// Get screen dimensions
 		screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
 				.getDefaultConfiguration().getBounds();
@@ -100,8 +100,8 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 
 			// Add the hotkey listener
 			GlobalScreen.addNativeKeyListener(this);
-			startButton.setEnabled(false);
-			stopButton.setEnabled(true);
+			startButton.setVisible(false);
+			stopButton.setVisible(true);
 //			while (isRunning) {
 //				// Sleep for some time before taking the next screenshot (adjust as needed)
 //				Thread.sleep(5000);
@@ -116,20 +116,19 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 		// Save the document
 		saveDocument("ScreenCapture-" + System.currentTimeMillis());
 		robot = null;
-		stopButton.setEnabled(false);
-		startButton.setEnabled(true);
+		stopButton.setVisible(false);
+		System. exit(0);
 	}
 
 	private void initDocument() {
 		doc = new XWPFDocument();
-		
+
 		// Set left and right margins
 		CTSectPr sectPr = doc.getDocument().getBody().addNewSectPr();
 		CTPageMar pageMar = sectPr.addNewPgMar();
 		pageMar.setLeft(BigInteger.valueOf(1440)); // 1 inch in twentieths of a point
 		pageMar.setRight(BigInteger.valueOf(1440)); // 1 inch in twentieths of a point
-		
-		
+
 		XWPFParagraph paragraph = doc.createParagraph();
 		XWPFRun run = paragraph.createRun();
 		run.setText("Screenshots captured:");
@@ -137,66 +136,56 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 
 	@Override
 	public void nativeKeyPressed(NativeKeyEvent e) {
-		takeScreenshot(e);
+		if (isRunning) {
+//			if ((e.getModifiers() & NativeKeyEvent.CTRL_L_MASK) != 0
+//					&& (e.getModifiers() & NativeKeyEvent.ALT_L_MASK) != 0 && e.getKeyCode() == NativeKeyEvent.VC_S) {
+			if (e.getKeyCode() == NativeKeyEvent.VC_S) {
+				takeScreenshot(e);
+			}
+		}
 	}
-
-//	private void saveDocx() {
-//		// For example, if the hotkey Ctrl+Alt+S is pressed:
-//				if (e.getKeyCode() == NativeKeyEvent.VC_S && (e.getModifiers() & NativeKeyEvent.CTRL_MASK) != 0
-//						&& (e.getModifiers() & NativeKeyEvent.SHIFT_MASK) != 0) {
-//					System.out.println("Hotkey Ctrl+Shift+S pressed!");
-//
-//					// Save the document
-//					saveDocument("screenshot-" + new Date().hashCode());
-//				}
-//	}
 
 	private void takeScreenshot(NativeKeyEvent e) {
 		// For example, if the hotkey Ctrl+Alt+S is pressed:
-		if (isRunning) {
-			if (e.getKeyCode() == NativeKeyEvent.VC_S && (e.getModifiers() & NativeKeyEvent.CTRL_MASK) != 0
-					&& (e.getModifiers() & NativeKeyEvent.ALT_MASK) != 0) {
-				System.out.println("Hotkey Ctrl+Alt+S pressed!");
-				if (robot != null) {
-					try {
-						Rectangle screenRect = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
-						BufferedImage screenshot = robot.createScreenCapture(screenRect);
+		System.out.println("Hotkey Ctrl+Alt+S pressed!");
+		if (robot != null) {
+			try {
+				screenRect = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
+				BufferedImage screenshot = robot.createScreenCapture(screenRect);
 
-						// Resize screenshot to fit within document margins
-						int maxWidth = 500; // Maximum width allowed in document (adjust as needed)
-						int maxHeight = 400; // Maximum height allowed in document (adjust as needed)
-						double widthScale = (double) maxWidth / screenshot.getWidth();
-						double heightScale = (double) maxHeight / screenshot.getHeight();
-						double scale = Math.min(widthScale, heightScale);
-						double newWidth = screenshot.getWidth() * scale;
-						double newHeight = screenshot.getHeight() * scale;
+				// Resize screenshot to fit within document margins
+				int maxWidth = 500; // Maximum width allowed in document (adjust as needed)
+				int maxHeight = 400; // Maximum height allowed in document (adjust as needed)
+				double widthScale = (double) maxWidth / screenshot.getWidth();
+				double heightScale = (double) maxHeight / screenshot.getHeight();
+				double scale = Math.min(widthScale, heightScale);
+				double newWidth = screenshot.getWidth() * scale;
+				double newHeight = screenshot.getHeight() * scale;
 
-						// Save screenshot to file
-						File screenshotFile = new File("screenshot_" + System.currentTimeMillis() + ".png");
-						ImageIO.write(screenshot, "png", screenshotFile);
+				// Save screenshot to file
+				File screenshotFile = new File("screenshot_" + System.currentTimeMillis() + ".png");
+				ImageIO.write(screenshot, "png", screenshotFile);
 
-						// Add screenshot to document
-						FileInputStream inputStream = new FileInputStream(screenshotFile);
-						XWPFParagraph p = doc.createParagraph();
-						XWPFRun r = p.createRun();
-						r.setText("Screenshot captured at: " + new Date());
-						r.addBreak();
-						r.addPicture(inputStream, XWPFDocument.PICTURE_TYPE_PNG, screenshotFile.getName(),
-								Units.toEMU(newWidth), Units.toEMU(newHeight));
-						inputStream.close();
+				// Add screenshot to document
+				FileInputStream inputStream = new FileInputStream(screenshotFile);
+				XWPFParagraph p = doc.createParagraph();
+				XWPFRun r = p.createRun();
+				r.setText("Screenshot captured at: " + new Date());
+				r.addBreak();
+				r.addPicture(inputStream, XWPFDocument.PICTURE_TYPE_PNG, screenshotFile.getName(),
+						Units.toEMU(newWidth), Units.toEMU(newHeight));
+				inputStream.close();
 
-						System.out.println("Screenshot captured and added to the document");
+				System.out.println("Screenshot captured and added to the document");
 
-						// Delete the screenshot file
-						if (screenshotFile.exists()) {
-							screenshotFile.delete();
-							System.out.println("Screenshot file deleted: " + screenshotFile.getName());
-						}
-
-					} catch (IOException | InvalidFormatException ex) {
-						ex.printStackTrace();
-					}
+				// Delete the screenshot file
+				if (screenshotFile.exists()) {
+					screenshotFile.delete();
+					System.out.println("Screenshot file deleted: " + screenshotFile.getName());
 				}
+
+			} catch (IOException | InvalidFormatException ex) {
+				ex.printStackTrace();
 			}
 		}
 	}
@@ -209,11 +198,12 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 	@Override
 	public void nativeKeyTyped(NativeKeyEvent e) {
 		// Handle key typed events here
+
 	}
 
 	// Method to save the document to a file
 	public void saveDocument(String filename) {
-		
+
 		// Get the system username
 		String username = System.getProperty("user.name");
 
@@ -221,7 +211,7 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 		String folderPath = "C:\\Users\\" + username + "\\Documents\\";
 		try {
 			// Create directory if it doesn't exist
-			File directory = new File(folderPath+"ScreenCaptureDocx");
+			File directory = new File(folderPath + "ScreenCaptureDocx");
 			if (!directory.exists()) {
 				directory.mkdirs();
 			}
@@ -235,7 +225,8 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 			out.close();
 			System.out.println("Document saved as: " + filePath);
 			// Show popup message
-            JOptionPane.showMessageDialog(null, "Document saved successfully at "+ filePath, "Success", JOptionPane.INFORMATION_MESSAGE);
+			JOptionPane.showMessageDialog(null, "Document saved successfully at " + filePath, "Success",
+					JOptionPane.INFORMATION_MESSAGE);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
