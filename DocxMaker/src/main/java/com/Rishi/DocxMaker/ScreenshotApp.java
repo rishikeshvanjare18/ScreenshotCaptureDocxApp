@@ -1,29 +1,39 @@
 package com.Rishi.DocxMaker;
 
 import java.awt.AWTException;
+import java.awt.Checkbox;
 import java.awt.FlowLayout;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.Robot;
+import java.awt.TextField;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.text.ParseException;
 import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.imageio.ImageIO;
 import javax.swing.JButton;
+import javax.swing.JFormattedTextField;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.plaf.basic.BasicTextFieldUI;
+import javax.swing.text.MaskFormatter;
 
+import org.apache.commons.codec.binary.StringUtils;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
+import org.apache.poi.sl.usermodel.TextBox;
 import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
@@ -47,8 +57,14 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 	private JButton startButton;
 	private JButton stopButton;
 	private Rectangle screenRect;
-
+	private Checkbox timeStampcheckbox;
+	private Checkbox customResolution;
+	private boolean timestamp = false;
+	private JFormattedTextField textFieldWidth, textFieldHeight;
 	public ScreenshotApp() {
+
+		screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
+				.getDefaultConfiguration().getBounds();
 
 		setTitle("Screenshot Application");
 		setSize(300, 200);
@@ -57,6 +73,41 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 
 		startButton = new JButton("Start");
 		stopButton = new JButton("Stop");
+		timeStampcheckbox = new Checkbox("TimeStamp");
+		customResolution = new Checkbox("Custom Resolution");
+		textFieldWidth = new JFormattedTextField(getMaskFormatter("###"));
+		textFieldHeight = new JFormattedTextField(getMaskFormatter("###"));
+		textFieldWidth.setColumns(10);
+		textFieldHeight.setColumns(10);
+		textFieldWidth.setText(String.valueOf(500));
+		textFieldHeight.setText(String.valueOf(400));
+
+		textFieldHeight.setEnabled(false);
+		textFieldWidth.setEnabled(false);
+		
+		customResolution.addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(ItemEvent e) {
+				if (e.getStateChange() == 1) {
+					textFieldWidth.setVisible(true);
+					textFieldHeight.setVisible(true);
+					textFieldWidth.setEnabled(true);
+					textFieldHeight.setEnabled(true);
+				} else {
+					textFieldHeight.setVisible(false);
+					textFieldWidth.setVisible(false);
+					textFieldWidth.setEnabled(false);
+					textFieldHeight.setEnabled(false);
+				}
+			}
+		});
+
+		timeStampcheckbox.addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(ItemEvent e) {
+				timestamp = !timestamp;
+			}
+		});
 
 		startButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -72,6 +123,10 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 
 		add(startButton);
 		add(stopButton);
+		add(timeStampcheckbox);
+		add(customResolution);
+		add(textFieldWidth);
+		add(textFieldHeight);
 
 		try {
 			GlobalScreen.registerNativeHook();
@@ -83,12 +138,18 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 		// Disable logger to prevent console spam from jnativehook
 		Logger logger = Logger.getLogger(GlobalScreen.class.getPackage().getName());
 		logger.setLevel(Level.OFF);
-		// Create the main application instance
-//		ScreenshotApp app = new ScreenshotApp();
 		stopButton.setVisible(false);
-		// Get screen dimensions
-		screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
-				.getDefaultConfiguration().getBounds();
+	}
+
+	private MaskFormatter getMaskFormatter(String format) {
+	    MaskFormatter mask = null;
+	    try {
+	        mask = new MaskFormatter(format);
+	        //mask.setPlaceholderCharacter('0');
+	    }catch (ParseException ex) {
+	        ex.printStackTrace();
+	    }
+	    return mask;
 	}
 
 	private void startProcess() {
@@ -102,10 +163,8 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 			GlobalScreen.addNativeKeyListener(this);
 			startButton.setVisible(false);
 			stopButton.setVisible(true);
-//			while (isRunning) {
-//				// Sleep for some time before taking the next screenshot (adjust as needed)
-//				Thread.sleep(5000);
-//			}
+			textFieldHeight.setEnabled(false);
+			textFieldWidth.setEnabled(false);
 		} catch (AWTException ex) {
 			ex.printStackTrace();
 		}
@@ -117,7 +176,9 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 		saveDocument("ScreenCapture-" + System.currentTimeMillis());
 		robot = null;
 		stopButton.setVisible(false);
-		System. exit(0);
+		// remove native hotkey listener
+		GlobalScreen.removeNativeKeyListener(this);
+		System.exit(0);
 	}
 
 	private void initDocument() {
@@ -137,9 +198,9 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 	@Override
 	public void nativeKeyPressed(NativeKeyEvent e) {
 		if (isRunning) {
-//			if ((e.getModifiers() & NativeKeyEvent.CTRL_L_MASK) != 0
-//					&& (e.getModifiers() & NativeKeyEvent.ALT_L_MASK) != 0 && e.getKeyCode() == NativeKeyEvent.VC_S) {
-			if (e.getKeyCode() == NativeKeyEvent.VC_S) {
+			if (((e.getModifiers() & NativeKeyEvent.CTRL_L_MASK) != 0
+					&& (e.getModifiers() & NativeKeyEvent.ALT_L_MASK) != 0 && e.getKeyCode() == NativeKeyEvent.VC_S)
+					|| e.getKeyCode() == NativeKeyEvent.VC_PRINTSCREEN) {
 				takeScreenshot(e);
 			}
 		}
@@ -147,7 +208,7 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 
 	private void takeScreenshot(NativeKeyEvent e) {
 		// For example, if the hotkey Ctrl+Alt+S is pressed:
-		System.out.println("Hotkey Ctrl+Alt+S pressed!");
+		System.out.println("Hotkey pressed!");
 		if (robot != null) {
 			try {
 				screenRect = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
@@ -156,21 +217,23 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 				// Resize screenshot to fit within document margins
 				int maxWidth = 500; // Maximum width allowed in document (adjust as needed)
 				int maxHeight = 400; // Maximum height allowed in document (adjust as needed)
-				double widthScale = (double) maxWidth / screenshot.getWidth();
-				double heightScale = (double) maxHeight / screenshot.getHeight();
+				double widthScale =  (textFieldWidth.getText().isBlank() ? (double) maxWidth : Double.parseDouble(textFieldWidth.getText())) / screenRect.getWidth();
+				double heightScale =  (textFieldHeight.getText().isBlank() ? (double) maxHeight: Double.parseDouble(textFieldHeight.getText())) / screenRect.getHeight();
 				double scale = Math.min(widthScale, heightScale);
-				double newWidth = screenshot.getWidth() * scale;
-				double newHeight = screenshot.getHeight() * scale;
+				double newWidth = (screenshot.getWidth()) * scale;
+				double newHeight = (screenshot.getHeight()) * scale;
 
 				// Save screenshot to file
-				File screenshotFile = new File("screenshot_" + System.currentTimeMillis() + ".png");
+				File screenshotFile = new File("screenshot" + System.currentTimeMillis() + ".png");
 				ImageIO.write(screenshot, "png", screenshotFile);
 
 				// Add screenshot to document
 				FileInputStream inputStream = new FileInputStream(screenshotFile);
 				XWPFParagraph p = doc.createParagraph();
 				XWPFRun r = p.createRun();
-				r.setText("Screenshot captured at: " + new Date());
+				if (timestamp) {
+					r.setText("Screenshot captured at: " + new Date());
+				}
 				r.addBreak();
 				r.addPicture(inputStream, XWPFDocument.PICTURE_TYPE_PNG, screenshotFile.getName(),
 						Units.toEMU(newWidth), Units.toEMU(newHeight));
