@@ -165,6 +165,8 @@ public class ScreenshotApp extends JFrame implements NativeKeyListener {
 			stopButton.setVisible(true);
 			textFieldHeight.setEnabled(false);
 			textFieldWidth.setEnabled(false);
+			customResolution.setEnabled(false);
+			timeStampcheckbox.setEnabled(false);
 		} catch (AWTException ex) {
 			ex.printStackTrace();
 		}
